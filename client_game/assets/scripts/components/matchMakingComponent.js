@@ -151,7 +151,7 @@ class matchMakinComponent extends HTMLElement {
             socket.onmessage = (event) => {
                 console.log("[WS: ClientSocket]: data is recieved");
                 const data = JSON.parse(event.data);
-                console.log(data);
+                // console.log(data);
                 localStorage.setItem("gameData", JSON.stringify({playerId: data.player_id, adversaryId: data.opponent_id, roomId: data.room_id}));
                 this.shadowRoot.querySelector("#startGame").style.opacity = "1";
                 this.shadowRoot.querySelector("#startGame").disabled = false;

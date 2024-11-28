@@ -38,6 +38,7 @@ class Player {
     }
 
     initCoordinates () {
+        console.log("from player entity", this.canvasWidth, this.canvasHeight);
         this.x = this.canvasSide === "left" ? 0 : this.canvasWidth - this.width;
     }
 

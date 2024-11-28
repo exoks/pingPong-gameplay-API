@@ -27,6 +27,9 @@ class Game {
         this.adversaryPlayer = new Player(width, height, canvasHeight, canvasWidth, speed, color);
         this.ball = new Ball(BALL_RADIUS, (canvas.width / 2 - 5), (canvas.height / 2 - 5), BALL_SPEED, BALL_SPEED, 1, canvasHeight, canvasWidth, color);
         
+
+        this.canvasHeight = canvasHeight;
+        this.canvasWidth = canvasWidth;
         this.gameMode = status;
         this.gameEnd = false;
         this.pause = false;
@@ -59,19 +62,17 @@ class Game {
             console.log("[WS: ClientSocket]: data is recieved");
             const data = JSON.parse(event.data);
             console.log(data);
-            const {ball, paddle_x, player_score, opponent_score} = data;
-
             if (data.event === "gameplay_init") {
-                this.initRemotePlayersSide(paddle_x);
-                console.log(`paddle x === ${paddle_x}`);
+                this.initRemotePlayersSide(data.paddle_x);
                 this.emitter.dispatchEvent(new CustomEvent('startGame'));
+            } 
+            else if (data.event === "update_score") {
+                this.pauseGame();
+                this.reinitComponentsCoordinates();
+            } else if (data.event === "paddle_state") {
+                console.log("received data");
+                // this.adversaryPlayer.y = data.paddle_y;
             }
-            // else if (data.event === "update_score") {
-            //     this.pauseGame();
-            //     this.reinitComponentsCoordinates();
-            // } else if (data.event === "updateOpponent") {
-            //     this.adversaryPlayer.y = data.y;
-            // }
         };
     }
 
@@ -90,7 +91,6 @@ class Game {
         } 
         else if (this.gameMode === "multiplayer") {
             this.emitter.addEventListener('startGame', () => {
-                // player side is already initialized in the socket event init
                 this.registerKeys();
                 this.remoteGame();
             });
@@ -122,20 +122,20 @@ class Game {
         if (!this.gameEnd) {
             if (!this.pause) {
                 Game.ctx.clearRect(0, 0, canvas.width, canvas.height);
-        //         this.ball.drawBall(Game.ctx);
+        //         // this.ball.drawBall(Game.ctx);
                 this.clientPlayer.drawPaddle(Game.ctx);
-        //         this.adversaryPlayer.drawPaddle(Game.ctx);
-        //         this.socket.send(JSON.stringify({
-        //             y: this.clientPlayer.y
-        //         }))
-        //         if (this.clientPlayer.score > Game.MAX_SCORE || this.adversaryPlayer.score > Game.MAX_SCORE) {
-        //             this.gameEnd = true;
-        //         }
+        //         // this.adversaryPlayer.drawPaddle(Game.ctx);
+                this.clientPlayer.movePaddle();
+                this.socket.send(JSON.stringify({
+                    paddle_y: this.clientPlayer.y
+                }));
+        //         // if (this.clientPlayer.score > Game.MAX_SCORE || this.adversaryPlayer.score > Game.MAX_SCORE) {
+        //         //     this.gameEnd = true;
+        //         // }
             }
-        //     this.displayScore();
+            this.displayScore();
             requestAnimationFrame(this.remoteGame.bind(this));
         }
-        console.log("entered remote game!");
     }
 
     registerKeys () {
@@ -181,8 +181,3 @@ class Game {
 }
 
 export default Game;
-
-
-// enter constructor, check status:
-// if local game then run an external function that initializes the game and adversary clients, registers keys and everything, start local game loop
-// if game is online run an external function that connects to socket, waits for init data, initializes the players and all, start remote game loop

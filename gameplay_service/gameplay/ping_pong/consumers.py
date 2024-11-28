@@ -46,11 +46,12 @@ class PlayerConsumer(AsyncWebsocketConsumer):
 
     # ====[ receive: receive data from client-side >===========================
     async def receive(self, text_data):
+        print(f"[SERVER: RECEIVE]: <{text_data}> data is received")
         data = json.loads(text_data)
+        print(data)
         r.rpush(self.game_event_queue, json.dumps({
             self.player_id: data['paddle_y'],
         }))
-        print(f"[SERVER: RECEIVE]: <{data}> data is received")
 
     # ====[ join_lobby: gather players in lobby to start game >================
     async def join_lobby(self, text_data):
