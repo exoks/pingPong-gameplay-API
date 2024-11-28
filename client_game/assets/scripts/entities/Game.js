@@ -59,19 +59,20 @@ class Game {
         // };
 
         this.socket.onmessage = (event) => {
-            console.log("[WS: ClientSocket]: data is recieved");
+            // console.log("[WS: ClientSocket]: data is recieved");
             const data = JSON.parse(event.data);
             console.log(data);
             if (data.event === "gameplay_init") {
                 this.initRemotePlayersSide(data.paddle_x);
                 this.emitter.dispatchEvent(new CustomEvent('startGame'));
             } 
-            else if (data.event === "update_score") {
-                this.pauseGame();
-                this.reinitComponentsCoordinates();
+            else if (data.event === "ball_state") {
+                // console.log("entered ball event")
+                this.ball.x = data.ball[0];
+                this.ball.y = data.ball[1];
             } else if (data.event === "paddle_state") {
                 console.log("received data");
-                // this.adversaryPlayer.y = data.paddle_y;
+                this.adversaryPlayer.y = data.paddle_y;
             }
         };
     }
@@ -122,13 +123,10 @@ class Game {
         if (!this.gameEnd) {
             if (!this.pause) {
                 Game.ctx.clearRect(0, 0, canvas.width, canvas.height);
-        //         // this.ball.drawBall(Game.ctx);
+                this.ball.drawBall(Game.ctx);
                 this.clientPlayer.drawPaddle(Game.ctx);
-        //         // this.adversaryPlayer.drawPaddle(Game.ctx);
-                this.clientPlayer.movePaddle();
-                this.socket.send(JSON.stringify({
-                    paddle_y: this.clientPlayer.y
-                }));
+                this.adversaryPlayer.drawPaddle(Game.ctx);
+                this.clientPlayer.movePaddle(this.socket);
         //         // if (this.clientPlayer.score > Game.MAX_SCORE || this.adversaryPlayer.score > Game.MAX_SCORE) {
         //         //     this.gameEnd = true;
         //         // }

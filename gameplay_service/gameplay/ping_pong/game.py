@@ -5,7 +5,7 @@
 #  ⢀⠔⠉⠀⠊⠿⠿⣿⠂⠠⠢⣤⠤⣤⣼⣿⣶⣶⣤⣝⣻⣷⣦⣍⡻⣿⣿⣿⣿⡀
 #  ⢾⣾⣆⣤⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠉⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇
 #  ⠀⠈⢋⢹⠋⠉⠙⢦⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇       Created: 2024/11/24 07:24:58 by oezzaou
-#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/11/28 16:32:17 by oezzaou
+#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/11/28 20:49:49 by oezzaou
 #  ⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⢀⣾⣿⣿⠿⠟⠛⠋⠛⢿⣿⣿⠻⣿⣿⣿⣿⡿⠀
 #  ⠀⠀⠀⠀⠀⠀⠀⢀⠇⠀⢠⣿⣟⣭⣤⣶⣦⣄⡀⠀⠀⠈⠻⠀⠘⣿⣿⣿⠇⠀
 #  ⠀⠀⠀⠀⠀⠱⠤⠊⠀⢀⣿⡿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠘⣿⠏⠀⠀                             𓆩♕𓆪
@@ -69,6 +69,7 @@ class Game:
 
     # ==== [ init: game_init >=================================================
     def init(self):
+        self.state = "START"
         self.broadcast_to_players({
             "type": "gameplay_init",
             "ball": [self.ball.x, self.ball.y],
@@ -92,11 +93,6 @@ class Game:
         for player in players:
             if player.id in paddle_y:
                 player.paddle.y = paddle_y[player.id]
-                self.broadcast_to_players({
-                    "type": "paddle_state",
-                    "player_id": player.id,
-                    "paddle_y": player.paddle.y,
-                })
 
     # ==== [ update_ball_state: >==============================================
     def update_ball_state(self):
@@ -108,7 +104,6 @@ class Game:
             "type": "ball_state",
             "ball": [self.ball.x, self.ball.y],
         })
-        print(f"{self.ball.x, self.ball.y}")
 
     # ==== [ top_bottom_collision: >===========================================
     def top_bottom_collision(self):
@@ -116,13 +111,18 @@ class Game:
         if self.ball.y not in range(min, max + 1):
             self.ball.y = min if self.ball.y <= min else max
             self.ball.step_y *= -1
+        # collistion with under paddle (paddle_y)
 
     # ==== [ left_right_collision: >===========================================
     def left_right_collision(self):
         min, max = self.ball.radius, self.screen.width - self.ball.radius
         if self.ball.x not in range(min, max + 1):
             self.ball.x = min if self.ball.x <= min else max
+            self.left_player.score += int(self.ball.x == min)
+            self.right_player.score += int(self.ball.x == min)
+            self.state == "RESTART"
             self.ball.step_x *= -1
+        # collistion with paddle side (paddle_x)
 
     # ==== [ reinitialize: reinitialize game for another round >===============
     def reinitialize(self):

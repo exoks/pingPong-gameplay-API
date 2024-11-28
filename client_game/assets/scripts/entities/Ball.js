@@ -22,10 +22,11 @@ class Ball {
     }
 
     detectCollision (p) {
+        // paddle dimentions
         let pTop = p.y;
         let pBottom = p.y + p.height;
-        let pLeft = p.x;
-        let pRight = p.x + p.width;
+        let pLeft = p.x
+        let pRight = p.x + p.width;;
     
         let bTop = this.y - this.radius;
         let bBottom = this.y + this.radius;

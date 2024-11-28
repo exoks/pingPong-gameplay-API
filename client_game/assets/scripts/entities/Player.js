@@ -19,12 +19,20 @@ class Player {
         ctx.fillRect(this.x, this.y, this.width, this.height);
     };
 
-    movePaddle() {
+    movePaddle(socket) {
+        let hasMoved = false;
         if (this.keyUp && this.y > 0) {
             this.y -= this.speed;
+            hasMoved = true;
         }
         if (this.keyDown && this.y + this.height < this.canvasHeight) {
             this.y += this.speed;
+            hasMoved = true;
+        }
+        if (socket && hasMoved) {
+            socket.send(JSON.stringify({
+                paddle_y: this.y
+            }));
         }
     };
 

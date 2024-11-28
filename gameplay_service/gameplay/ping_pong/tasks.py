@@ -5,7 +5,7 @@
 #  ⢀⠔⠉⠀⠊⠿⠿⣿⠂⠠⠢⣤⠤⣤⣼⣿⣶⣶⣤⣝⣻⣷⣦⣍⡻⣿⣿⣿⣿⡀
 #  ⢾⣾⣆⣤⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠉⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇
 #  ⠀⠈⢋⢹⠋⠉⠙⢦⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇       Created: 2024/11/24 13:06:31 by oezzaou
-#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/11/28 16:24:51 by oezzaou
+#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/11/28 20:25:59 by oezzaou
 #  ⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⢀⣾⣿⣿⠿⠟⠛⠋⠛⢿⣿⣿⠻⣿⣿⣿⣿⡿⠀
 #  ⠀⠀⠀⠀⠀⠀⠀⢀⠇⠀⢠⣿⣟⣭⣤⣶⣦⣄⡀⠀⠀⠈⠻⠀⠘⣿⣿⣿⠇⠀
 #  ⠀⠀⠀⠀⠀⠱⠤⠊⠀⢀⣿⡿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠘⣿⠏⠀⠀                             𓆩♕𓆪
@@ -33,7 +33,7 @@ def game_init(left_player_id, right_player_id, room_id):
     cx, cy = screen.get_center()
     left_player = Player(id=left_player_id, paddle=Paddle(x=0, y=cy), score=0)
     right_player = Player(right_player_id, Paddle(screen.width, cy), score=0)
-    ball = Ball(x=cx, y=cy, step_x=10, step_y=10, radius=5)
+    ball = Ball(x=cx, y=cy, step_x=3, step_y=3, radius=5)
     game = Game(screen, left_player, right_player, ball, room_id)
     return game.init()
 
@@ -41,13 +41,13 @@ def game_init(left_player_id, right_player_id, room_id):
 # ==== [ game_event_loop: >====================================================
 def game_event_loop(game, game_event_queue):
     r = redis.StrictRedis(host="redis", port=6379, db=0)
-    time_frame = 1.0
+    time_frame = 0.01
 
     while game.state != "END":
         event = r.lpop(game_event_queue)
         game = game.update_state(event)
         if game.state == "RESTART":
-            game.reinitialize()
+            game.init()
         time.sleep(time_frame)
     return game.get_history()
 

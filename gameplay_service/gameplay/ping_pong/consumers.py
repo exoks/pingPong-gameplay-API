@@ -5,7 +5,7 @@
 #  ⢀⠔⠉⠀⠊⠿⠿⣿⠂⠠⠢⣤⠤⣤⣼⣿⣶⣶⣤⣝⣻⣷⣦⣍⡻⣿⣿⣿⣿⡀
 #  ⢾⣾⣆⣤⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠉⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇
 #  ⠀⠈⢋⢹⠋⠉⠙⢦⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇       Created: 2024/11/24 10:50:16 by oezzaou
-#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/11/28 16:39:02 by oezzaou
+#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/11/28 20:26:07 by oezzaou
 #  ⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⢀⣾⣿⣿⠿⠟⠛⠋⠛⢿⣿⣿⠻⣿⣿⣿⣿⡿⠀
 #  ⠀⠀⠀⠀⠀⠀⠀⢀⠇⠀⢠⣿⣟⣭⣤⣶⣦⣄⡀⠀⠀⠈⠻⠀⠘⣿⣿⣿⠇⠀
 #  ⠀⠀⠀⠀⠀⠱⠤⠊⠀⢀⣿⡿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠘⣿⠏⠀⠀                             𓆩♕𓆪
@@ -46,11 +46,15 @@ class PlayerConsumer(AsyncWebsocketConsumer):
 
     # ====[ receive: receive data from client-side >===========================
     async def receive(self, text_data):
-        print(f"[SERVER: RECEIVE]: <{text_data}> data is received")
-        data = json.loads(text_data)
-        print(data)
+        # print(f"[SERVER: RECEIVE]: <{text_data}> data is received")
+        paddle_data = json.loads(text_data)
+        await self.channel_layer.group_send(self.room_id, {
+            "type": "paddle_state",
+            "player_id": self.player_id,
+            "paddle_y": paddle_data['paddle_y'],
+        })
         r.rpush(self.game_event_queue, json.dumps({
-            self.player_id: data['paddle_y'],
+            self.player_id: paddle_data['paddle_y'],
         }))
 
     # ====[ join_lobby: gather players in lobby to start game >================
@@ -74,7 +78,7 @@ class PlayerConsumer(AsyncWebsocketConsumer):
 
     # ====[ paddle_state: update paddle_state in client-side >=================
     async def paddle_state(self, paddle_data):
-        print(f"[SERVER: EVENT] > paddle state <{paddle_data}>")
+        # print(f"[SERVER: EVENT] > paddle state <{paddle_data}>")
         if self.player_id != paddle_data['player_id']:
             await self.send(json.dumps({
                 "event": paddle_data['type'],
@@ -83,8 +87,11 @@ class PlayerConsumer(AsyncWebsocketConsumer):
 
     # ====[ ball_state: update ball state in client-sdie >=====================
     async def ball_state(self, ball_data):
-        await self.send(json.dumps(ball_data))
+        await self.send(json.dumps({
+            "event": ball_data['type'],
+            "ball": ball_data['ball'],
+        }))
 
-    # ====[ gameplay_state: update game state in client-sdie >=================
+        # ====[ gameplay_state: update game state in client-sdie >=============
     async def gameplay_reinitialize(self, reinit_state_data):
         await self.send(json.dumps(reinit_state_data))
