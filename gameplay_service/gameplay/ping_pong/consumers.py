@@ -5,7 +5,7 @@
 #  ⢀⠔⠉⠀⠊⠿⠿⣿⠂⠠⠢⣤⠤⣤⣼⣿⣶⣶⣤⣝⣻⣷⣦⣍⡻⣿⣿⣿⣿⡀
 #  ⢾⣾⣆⣤⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠉⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇
 #  ⠀⠈⢋⢹⠋⠉⠙⢦⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇       Created: 2024/11/24 10:50:16 by oezzaou
-#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/11/28 20:26:07 by oezzaou
+#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/12/01 21:47:41 by oezzaou
 #  ⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⢀⣾⣿⣿⠿⠟⠛⠋⠛⢿⣿⣿⠻⣿⣿⣿⣿⡿⠀
 #  ⠀⠀⠀⠀⠀⠀⠀⢀⠇⠀⢠⣿⣟⣭⣤⣶⣦⣄⡀⠀⠀⠈⠻⠀⠘⣿⣿⣿⠇⠀
 #  ⠀⠀⠀⠀⠀⠱⠤⠊⠀⢀⣿⡿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠘⣿⠏⠀⠀                             𓆩♕𓆪
@@ -63,7 +63,7 @@ class PlayerConsumer(AsyncWebsocketConsumer):
             self.initiator = True
             start_gameplay.delay(self.player_id, text_data['opponent_id'],
                                  self.room_id, self.game_event_queue)
-            print("[SERVER: MESSAGE]: > starting game")
+            print("[SERVER: MESSAGE: > starting game")
 
     # ====[ gameplay_init: initiate the game for client-side >=================
     async def gameplay_init(self, game_data):
@@ -92,6 +92,13 @@ class PlayerConsumer(AsyncWebsocketConsumer):
             "ball": ball_data['ball'],
         }))
 
-        # ====[ gameplay_state: update game state in client-sdie >=============
-    async def gameplay_reinitialize(self, reinit_state_data):
-        await self.send(json.dumps(reinit_state_data))
+    # ====[ gameplay_state: update game state in client-sdie >=============
+    async def gameplay_reinit(self, reinit_data):
+        player, opponent = (0, 1) if self.initiator is True else (1, 0)
+        await self.send(json.dumps({
+            "event": reinit_data['type'],
+            "ball": reinit_data['ball'],
+            "paddle_x": reinit_data['paddle_x'][player],
+            "player_score": reinit_data['score'][player],
+            "opponent_score": reinit_data['score'][opponent],
+        }))

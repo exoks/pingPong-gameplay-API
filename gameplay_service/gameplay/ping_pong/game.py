@@ -5,7 +5,7 @@
 #  ⢀⠔⠉⠀⠊⠿⠿⣿⠂⠠⠢⣤⠤⣤⣼⣿⣶⣶⣤⣝⣻⣷⣦⣍⡻⣿⣿⣿⣿⡀
 #  ⢾⣾⣆⣤⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠉⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇
 #  ⠀⠈⢋⢹⠋⠉⠙⢦⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇       Created: 2024/11/24 07:24:58 by oezzaou
-#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/11/28 20:49:49 by oezzaou
+#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/12/01 21:13:37 by oezzaou
 #  ⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⢀⣾⣿⣿⠿⠟⠛⠋⠛⢿⣿⣿⠻⣿⣿⣿⣿⡿⠀
 #  ⠀⠀⠀⠀⠀⠀⠀⢀⠇⠀⢠⣿⣟⣭⣤⣶⣦⣄⡀⠀⠀⠈⠻⠀⠘⣿⣿⣿⠇⠀
 #  ⠀⠀⠀⠀⠀⠱⠤⠊⠀⢀⣿⡿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠘⣿⠏⠀⠀                             𓆩♕𓆪
@@ -17,6 +17,7 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from dataclasses import dataclass
 import json
+import math
 
 
 # ==== [ Screen : data class >=================================================
@@ -34,8 +35,21 @@ class Screen:
 class Paddle:
     x:                  int
     y:                  int
+    side:               int
     width:              int = 20
     height:             int = 100
+
+    def top(self):
+        return self.y
+
+    def bottom(self):
+        return self.y + self.height
+
+    def left(self):
+        return self.x if self.side == 1 else self.x - self.width
+
+    def right(self):
+        return self.x if self.side == -1 else self.x + self.width
 
 
 # ==== [ Paddle : data class >=================================================
@@ -51,9 +65,22 @@ class Player:
 class Ball:
     x:                  int
     y:                  int
-    step_x:             float
-    step_y:             float
     radius:             int
+    speed:              float
+    speed_x:            float
+    speed_y:            float
+
+    def top(self):
+        return self.y - self.radius
+
+    def bottom(self):
+        return self.y + self.radius
+
+    def left(self):
+        return self.x - self.radius
+
+    def right(self):
+        return self.x + self.radius
 
 
 # ==== [ Game : data class >===================================================
@@ -61,15 +88,15 @@ class Ball:
 class Game:
 
     screen:             Screen
-    right_player:       Player
     left_player:        Player
+    right_player:       Player
     ball:               Ball
     room_id:            str
     state:              str = "START"
 
     # ==== [ init: game_init >=================================================
     def init(self):
-        self.state = "START"
+        cx, cy = self.screen.get_center()
         self.broadcast_to_players({
             "type": "gameplay_init",
             "ball": [self.ball.x, self.ball.y],
@@ -96,9 +123,11 @@ class Game:
 
     # ==== [ update_ball_state: >==============================================
     def update_ball_state(self):
-        self.ball.x += self.ball.step_x
-        self.ball.y += self.ball.step_y
+        self.ball.x += self.ball.speed_x
+        self.ball.y += self.ball.speed_y
+        print(f"{self.ball.x}:{self.ball.y}")
         self.top_bottom_collision()
+        self.paddles_collision()
         self.left_right_collision()
         self.broadcast_to_players({
             "type": "ball_state",
@@ -109,9 +138,8 @@ class Game:
     def top_bottom_collision(self):
         min, max = self.ball.radius, self.screen.height - self.ball.radius
         if self.ball.y not in range(min, max + 1):
-            self.ball.y = min if self.ball.y <= min else max
-            self.ball.step_y *= -1
-        # collistion with under paddle (paddle_y)
+            print("[BALL: COLLISION]> collision with TOP/BOTTOM")
+            self.ball.speed_y *= -1
 
     # ==== [ left_right_collision: >===========================================
     def left_right_collision(self):
@@ -119,14 +147,42 @@ class Game:
         if self.ball.x not in range(min, max + 1):
             self.ball.x = min if self.ball.x <= min else max
             self.left_player.score += int(self.ball.x == min)
-            self.right_player.score += int(self.ball.x == min)
-            self.state == "RESTART"
-            self.ball.step_x *= -1
-        # collistion with paddle side (paddle_x)
+            self.right_player.score += int(self.ball.x == max)
+            self.state = "RESTART"
+            # line for test (removed later)
+            self.ball.speed_x *= -1
 
-    # ==== [ reinitialize: reinitialize game for another round >===============
-    def reinitialize(self):
-        pass
+    # ==== [ paddles_collision: check collistion with paddles >================
+    def paddles_collision(self):
+        paddles = [self.left_player.paddle, self.right_player.paddle]
+        paddle = paddles[self.ball.x > self.screen.width / 2]
+        collision = (self.ball.bottom() > paddle.top() and
+                     self.ball.top() < paddle.bottom() and
+                     self.ball.right() > paddle.left() and
+                     self.ball.left() < paddle.right())
+        if collision is True:
+            print(f"[GAME: PADDLE] > Collision: {paddle.side}")
+            collide_point = self.ball.y - (paddle.y + paddle.height / 2)
+            collide_point /= paddle.height / 2
+            # collide_point = ((2 * self.ball.y - paddle.y) / paddle.height) - 1
+            α = (math.pi / 4) * collide_point
+            self.ball.speed_x = int(paddle.side * self.ball.speed * math.cos(α))
+            self.ball.speed_y = int(self.ball.speed * math.sin(α))
+            self.ball.speed += 0.1
+            # print(f"[SPEED: x] > {self.ball.speed_x}")
+            # print(f"[GAME: ]> {self.ball.speed_x}:{self.ball.speed_y}")
+
+    # ==== [ reinit: reinitialize game for another round >=====================
+    def reinit(self, new_game_state):
+        self.state = new_game_state
+        self.broadcast_to_players({
+            "type": "gameplay_reinit",
+            "ball": [self.screen.width / 2, self.screen.height / 2],
+            "score": [self.left_player.score, self.right_player.score],
+            "paddle_x": [self.left_player.paddle.x, self.right_player.paddle.x]
+        })
+        print("[SERVER: REINIT]> reinit the game")
+        return (self)
 
     # ==== [ broadcast_to_players: >===========================================
     def broadcast_to_players(self, data):
@@ -136,3 +192,6 @@ class Game:
     # ==== [ get_history: return history of game >=============================
     def get_history(self):
         pass
+
+# collide_point = self.ball.y - (paddle.y + paddle.height / 2)
+# collide_point = collide_point / (paddle.height / 2)
