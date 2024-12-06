@@ -57,12 +57,12 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'gameplay.urls'
 
-# Memory Layer is good for testing and development, use 127.0.0.1 for the production
+# Memory Layer is good for testing and development, use redis for the production
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "channels_127.0.0.1.core.RedisChannelLayer",
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [("127.0.0.1", 6379)],
+            "hosts": [("redis", 6379)],
             "capacity": 1000,  # Increase capacity per group
         },
     },
@@ -87,7 +87,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'gameplay.wsgi.application'
 ASGI_APPLICATION = 'gameplay.asgi.application'
 
-CELERY_BROKER_URL = 'redis://127.0.0.1:6379/'
+CELERY_BROKER_URL = 'redis://redis:6379/'
 
 CELERY_TASK_QUEUES = {
     'gameplay_queue': {

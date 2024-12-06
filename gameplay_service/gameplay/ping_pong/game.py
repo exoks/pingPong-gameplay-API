@@ -5,7 +5,7 @@
 #  ⢀⠔⠉⠀⠊⠿⠿⣿⠂⠠⠢⣤⠤⣤⣼⣿⣶⣶⣤⣝⣻⣷⣦⣍⡻⣿⣿⣿⣿⡀
 #  ⢾⣾⣆⣤⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠉⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇
 #  ⠀⠈⢋⢹⠋⠉⠙⢦⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇       Created: 2024/11/24 07:24:58 by oezzaou
-#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/12/01 21:13:37 by oezzaou
+#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/12/06 08:53:37 by oezzaou
 #  ⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⢀⣾⣿⣿⠿⠟⠛⠋⠛⢿⣿⣿⠻⣿⣿⣿⣿⡿⠀
 #  ⠀⠀⠀⠀⠀⠀⠀⢀⠇⠀⢠⣿⣟⣭⣤⣶⣦⣄⡀⠀⠀⠈⠻⠀⠘⣿⣿⣿⠇⠀
 #  ⠀⠀⠀⠀⠀⠱⠤⠊⠀⢀⣿⡿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠘⣿⠏⠀⠀                             𓆩♕𓆪
@@ -15,8 +15,7 @@
 # ====[ Modules: >=============================================================
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from dataclasses import dataclass
-import json
+from dataclasses import dataclass, field
 import math
 
 
@@ -38,6 +37,17 @@ class Paddle:
     side:               int
     width:              int = 20
     height:             int = 100
+    _default:           dict = field(init=False, repr=False)
+
+    def __post_init__(self):
+        self.y -= (self.height / 2)
+        self._default = {
+            "x": self.x,
+            "y": self.y,
+        }
+
+    def rest(self):
+        self.x, self.y = self._default['x'], self._default['y']
 
     def top(self):
         return self.y
@@ -69,6 +79,22 @@ class Ball:
     speed:              float
     speed_x:            float
     speed_y:            float
+    _default:           dict = field(init=False, repr=False)
+
+    def __post_init__(self):
+        self._default = {
+            "x": self.x,
+            "y": self.y,
+            "speed": self.speed,
+            "speed_x": self.speed_x,
+            "speed_y": self.speed_y,
+        }
+
+    def reset(self):
+        self.x, self.y = self._default['x'], self._default['y']
+        self.speed = self._default['speed']
+        self.speed_x = self._default['speed_x']
+        self.speed_y = self._default['speed_y']
 
     def top(self):
         return self.y - self.radius
@@ -84,7 +110,6 @@ class Ball:
 
 
 # ==== [ Game : data class >===================================================
-@dataclass
 class Game:
 
     screen:             Screen
@@ -94,10 +119,17 @@ class Game:
     room_id:            str
     state:              str = "START"
 
+    # ==== [ __init__(): constructor >=========================================
+    def __init__(self, screen, left_player, right_player, ball, room_id):
+        self.screen = screen
+        self.left_player = left_player
+        self.right_player = right_player
+        self.ball = ball
+        self.room_id = room_id
+
     # ==== [ init: game_init >=================================================
     def init(self):
-        cx, cy = self.screen.get_center()
-        self.broadcast_to_players({
+        async_to_sync(self.broadcast_to_players)({
             "type": "gameplay_init",
             "ball": [self.ball.x, self.ball.y],
             "score": [self.left_player.score, self.right_player.score],
@@ -106,30 +138,26 @@ class Game:
         return (self)
 
     # ==== [ update_state: game state based on paddle & ball states >==========
-    def update_state(self, event):
-        self.update_paddle_state(event)
+    def update_state(self, paddle_event):
+        self.update_paddle_state(paddle_event)
         self.update_ball_state()
         return (self)
 
     # ==== [update_paddle_state: update paddle state based on event >==========
     def update_paddle_state(self, paddle_event):
-        if paddle_event is None:
-            return
         players = [self.left_player, self.right_player]
-        paddle_y = json.loads(paddle_event)
         for player in players:
-            if player.id in paddle_y:
-                player.paddle.y = paddle_y[player.id]
+            if player.id in paddle_event:
+                player.paddle.y = int(paddle_event[player.id])
 
     # ==== [ update_ball_state: >==============================================
     def update_ball_state(self):
-        self.ball.x += self.ball.speed_x
-        self.ball.y += self.ball.speed_y
-        print(f"{self.ball.x}:{self.ball.y}")
+        self.ball.x += int(self.ball.speed_x)
+        self.ball.y += int(self.ball.speed_y)
         self.top_bottom_collision()
         self.paddles_collision()
         self.left_right_collision()
-        self.broadcast_to_players({
+        async_to_sync(self.broadcast_to_players)({
             "type": "ball_state",
             "ball": [self.ball.x, self.ball.y],
         })
@@ -138,19 +166,16 @@ class Game:
     def top_bottom_collision(self):
         min, max = self.ball.radius, self.screen.height - self.ball.radius
         if self.ball.y not in range(min, max + 1):
-            print("[BALL: COLLISION]> collision with TOP/BOTTOM")
             self.ball.speed_y *= -1
 
     # ==== [ left_right_collision: >===========================================
     def left_right_collision(self):
-        min, max = self.ball.radius, self.screen.width - self.ball.radius
+        min, max = -self.ball.radius, self.screen.width + self.ball.radius
         if self.ball.x not in range(min, max + 1):
-            self.ball.x = min if self.ball.x <= min else max
-            self.left_player.score += int(self.ball.x == min)
-            self.right_player.score += int(self.ball.x == max)
-            self.state = "RESTART"
-            # line for test (removed later)
-            self.ball.speed_x *= -1
+            self.left_player.score += int(self.ball.x > max)
+            self.right_player.score += int(self.ball.x < min)
+            isEnd = self.left_player.score == 6 or self.right_player.score == 6
+            self.state = "END" if isEnd is True else "RESTART"
 
     # ==== [ paddles_collision: check collistion with paddles >================
     def paddles_collision(self):
@@ -161,37 +186,40 @@ class Game:
                      self.ball.right() > paddle.left() and
                      self.ball.left() < paddle.right())
         if collision is True:
-            print(f"[GAME: PADDLE] > Collision: {paddle.side}")
-            collide_point = self.ball.y - (paddle.y + paddle.height / 2)
-            collide_point /= paddle.height / 2
-            # collide_point = ((2 * self.ball.y - paddle.y) / paddle.height) - 1
-            α = (math.pi / 4) * collide_point
-            self.ball.speed_x = int(paddle.side * self.ball.speed * math.cos(α))
-            self.ball.speed_y = int(self.ball.speed * math.sin(α))
+            collide_point = (2 * (self.ball.y - paddle.y) / paddle.height) - 1
+            α = (math.pi / 8) * collide_point
+            self.ball.speed_x = paddle.side * self.ball.speed * math.cos(α)
+            self.ball.speed_y = self.ball.speed * math.sin(α)
             self.ball.speed += 0.1
-            # print(f"[SPEED: x] > {self.ball.speed_x}")
-            # print(f"[GAME: ]> {self.ball.speed_x}:{self.ball.speed_y}")
 
     # ==== [ reinit: reinitialize game for another round >=====================
-    def reinit(self, new_game_state):
-        self.state = new_game_state
-        self.broadcast_to_players({
+    def reinit(self):
+        self.state = "START"
+        self.ball.reset()
+        self.left_player.paddle.rest()
+        self.right_player.paddle.rest()
+        async_to_sync(self.broadcast_to_players)({
             "type": "gameplay_reinit",
-            "ball": [self.screen.width / 2, self.screen.height / 2],
+            "ball": [self.ball.x, self.ball.y],
             "score": [self.left_player.score, self.right_player.score],
             "paddle_x": [self.left_player.paddle.x, self.right_player.paddle.x]
         })
-        print("[SERVER: REINIT]> reinit the game")
-        return (self)
+        # print("[SERVER: REINIT]> reinit the game")
+        return self
+
+    # ==== [ end: broadcast game_end & return game results >===================
+    def end(self):
+        results = {
+            self.left_player.id: self.left_player.score,
+            self.right_player.id: self.right_player.score,
+        }
+        async_to_sync(self.broadcast_to_players)({
+            "type": "gameplay_end",
+            "score": [self.left_player.score, self.right_player.score],
+        })
+        return results
 
     # ==== [ broadcast_to_players: >===========================================
-    def broadcast_to_players(self, data):
+    async def broadcast_to_players(self, data):
         channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(self.room_id, data)
-
-    # ==== [ get_history: return history of game >=============================
-    def get_history(self):
-        pass
-
-# collide_point = self.ball.y - (paddle.y + paddle.height / 2)
-# collide_point = collide_point / (paddle.height / 2)
+        await channel_layer.group_send(self.room_id, data)
