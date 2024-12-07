@@ -5,22 +5,20 @@
 #  ⢀⠔⠉⠀⠊⠿⠿⣿⠂⠠⠢⣤⠤⣤⣼⣿⣶⣶⣤⣝⣻⣷⣦⣍⡻⣿⣿⣿⣿⡀
 #  ⢾⣾⣆⣤⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠉⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇
 #  ⠀⠈⢋⢹⠋⠉⠙⢦⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇       Created: 2024/11/24 13:06:31 by oezzaou
-#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/12/05 21:17:04 by oezzaou
-#  ⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⢀⣾⣿⣿⠿⠟⠛⠋⠛⢿⣿⣿⠻⣿⣿⣿⣿⡿⠀
-#  ⠀⠀⠀⠀⠀⠀⠀⢀⠇⠀⢠⣿⣟⣭⣤⣶⣦⣄⡀⠀⠀⠈⠻⠀⠘⣿⣿⣿⠇⠀
+#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/12/07 20:15:51 by oezzaou
+#  ⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⢀⣾⣿⣿⠿⠟⠛⠋⠛⢿⣿⣿⠻⣿⣿⣿⣿⡿⠀ ⠀⠀⠀⠀⠀⠀⠀⢀⠇⠀⢠⣿⣟⣭⣤⣶⣦⣄⡀⠀⠀⠈⠻⠀⠘⣿⣿⣿⠇⠀
 #  ⠀⠀⠀⠀⠀⠱⠤⠊⠀⢀⣿⡿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠘⣿⠏⠀⠀                             𓆩♕𓆪
 #  ⠀⠀⠀⠀⠀⡄⠀⠀⠀⠘⢧⡀⠀⠀⠸⣿⣿⣿⠟⠀⠀⠀⠀⠀⠀⠐⠋⠀⠀⠀                     𓄂 oussama ezzaou𓆃
 #  ⠀⠀⠀⠀⠀⠘⠄⣀⡀⠸⠓⠀⠀⠀⠠⠟⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 
-# ==== [ Modules: >============================================================
+# ====<[ Modules: ]>===========================================================
 from .game import Game, Player, Paddle, Ball, Screen
 from celery import shared_task
-import asyncio
 import redis
 import time
 
 
-# ==== [ start_gameplay: game task handled by celery >=========================
+# ====<[ start_gameplay: game task handled by celery ]>========================
 @shared_task
 def start_gameplay(left_player_id, right_player_id, room_id, game_cache):
     game = game_init(left_player_id, right_player_id, room_id)
@@ -28,8 +26,7 @@ def start_gameplay(left_player_id, right_player_id, room_id, game_cache):
     game_register_results(results)
 
 
-# ==== [ run_game: run the game >==============================================
-# ==== [ game_init: initiate game >============================================
+# ====<[ game_init: initiate game ]>===========================================
 def game_init(left_player_id, right_player_id, room_id):
     screen = Screen(600, 1200)
     cx, cy = screen.get_center()
@@ -42,23 +39,26 @@ def game_init(left_player_id, right_player_id, room_id):
     return game.init()
 
 
-# ==== [ game_event_loop: >====================================================
+# ====<[ game_event_loop: ]>===================================================
 def game_event_loop(game, game_cache):
-    r = redis.StrictRedis(host="redis", port=6379, decode_responses=True)
+    redis_conn = redis.StrictRedis("redis", 6379, decode_responses=True)
     fps = 1 / 60
 
     while game.state != "END":
         start_time = time.time()
-        paddle_event = r.hgetall(game_cache)
-        game = game.update_state(paddle_event)
+        event = redis_conn.hgetall(game_cache)
+        game = game.update_state(event)
+        if game.state == "STOP":
+            game.stop()
         if game.state == "RESTART":
             game.reinit()
-            r.delete(game_cache)
+            redis_conn.delete(game_cache)
         elapsed_time = time.time() - start_time
         time.sleep(max(0, fps - elapsed_time))
+    redis_conn.close()
     return game.end()
 
 
-# ==== [ game_register_history: >==============================================
+# ====<[ game_register_history ]>==============================================
 def game_register_results(results):
     pass

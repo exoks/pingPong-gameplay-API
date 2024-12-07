@@ -5,7 +5,7 @@
 #  ⢀⠔⠉⠀⠊⠿⠿⣿⠂⠠⠢⣤⠤⣤⣼⣿⣶⣶⣤⣝⣻⣷⣦⣍⡻⣿⣿⣿⣿⡀
 #  ⢾⣾⣆⣤⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠉⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇
 #  ⠀⠈⢋⢹⠋⠉⠙⢦⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇       Created: 2024/11/24 07:24:58 by oezzaou
-#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/12/06 08:53:37 by oezzaou
+#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/12/07 20:20:15 by oezzaou
 #  ⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⢀⣾⣿⣿⠿⠟⠛⠋⠛⢿⣿⣿⠻⣿⣿⣿⣿⡿⠀
 #  ⠀⠀⠀⠀⠀⠀⠀⢀⠇⠀⢠⣿⣟⣭⣤⣶⣦⣄⡀⠀⠀⠈⠻⠀⠘⣿⣿⣿⠇⠀
 #  ⠀⠀⠀⠀⠀⠱⠤⠊⠀⢀⣿⡿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠘⣿⠏⠀⠀                             𓆩♕𓆪
@@ -17,9 +17,10 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from dataclasses import dataclass, field
 import math
+import time
 
 
-# ==== [ Screen : data class >=================================================
+# ====<[ Screen : data class ]>==================================================
 @dataclass
 class Screen:
     height:             int = 600
@@ -46,7 +47,7 @@ class Paddle:
             "y": self.y,
         }
 
-    def rest(self):
+    def reset(self):
         self.x, self.y = self._default['x'], self._default['y']
 
     def top(self):
@@ -68,6 +69,18 @@ class Player:
     id:                 str
     paddle:             Paddle
     score:              int
+    state:              str = "unkown"
+    timer:              int = 30
+    _default:           dict = field(init=False, repr=False)
+
+    def __post_init__(self):
+        self._default = {
+            "timer": self.timer,
+        }
+
+    def reset(self):
+        self.paddle.reset()
+        self.timer = self._default["timer"]
 
 
 # ==== [ Ball : data class >===================================================
@@ -118,8 +131,9 @@ class Game:
     ball:               Ball
     room_id:            str
     state:              str = "START"
+    max_score:          int = 6
 
-    # ==== [ __init__(): constructor >=========================================
+    # ====<[ __init__(): constructor ]>=========================================
     def __init__(self, screen, left_player, right_player, ball, room_id):
         self.screen = screen
         self.left_player = left_player
@@ -127,7 +141,7 @@ class Game:
         self.ball = ball
         self.room_id = room_id
 
-    # ==== [ init: game_init >=================================================
+    # ====<[ init: game_init ]>================================================
     def init(self):
         async_to_sync(self.broadcast_to_players)({
             "type": "gameplay_init",
@@ -137,18 +151,32 @@ class Game:
         })
         return (self)
 
-    # ==== [ update_state: game state based on paddle & ball states >==========
-    def update_state(self, paddle_event):
-        self.update_paddle_state(paddle_event)
-        self.update_ball_state()
+    # ====<[ update_state: game state based on paddle & ball states ]>=========
+    def update_state(self, event):
+        self.update_player_state(event)
+        # print(f"[GAME: STATE]: {self.state}")
+        if self.state != "STOP":
+            self.update_paddle_state(event)
+            self.update_ball_state()
         return (self)
 
+    # ==== [ update_player_state: >============================================
+    def update_player_state(self, event_dict):
+        players, states = [self.left_player, self.right_player], []
+        for player in players:
+            player_state = f"{player.id}_state"
+            if player_state in event_dict:
+                player.state = event_dict.pop(player_state)
+            states.append(player.state)
+        self.state = "START" if "unavailable" not in states else "STOP"
+
     # ==== [update_paddle_state: update paddle state based on event >==========
-    def update_paddle_state(self, paddle_event):
+    def update_paddle_state(self, event_dict):
         players = [self.left_player, self.right_player]
         for player in players:
-            if player.id in paddle_event:
-                player.paddle.y = int(paddle_event[player.id])
+            paddle_y = f"{player.id}_paddle_y"
+            if paddle_y in event_dict:
+                player.paddle.y = int(event_dict.pop(paddle_y))
 
     # ==== [ update_ball_state: >==============================================
     def update_ball_state(self):
@@ -170,12 +198,13 @@ class Game:
 
     # ==== [ left_right_collision: >===========================================
     def left_right_collision(self):
+        scores = [self.left_player.score, self.right_player.score]
+        self.state = "END" if self.max_score in scores else self.state
         min, max = -self.ball.radius, self.screen.width + self.ball.radius
         if self.ball.x not in range(min, max + 1):
             self.left_player.score += int(self.ball.x > max)
             self.right_player.score += int(self.ball.x < min)
-            isEnd = self.left_player.score == 6 or self.right_player.score == 6
-            self.state = "END" if isEnd is True else "RESTART"
+            self.state = "RESTART"
 
     # ==== [ paddles_collision: check collistion with paddles >================
     def paddles_collision(self):
@@ -190,14 +219,13 @@ class Game:
             α = (math.pi / 8) * collide_point
             self.ball.speed_x = paddle.side * self.ball.speed * math.cos(α)
             self.ball.speed_y = self.ball.speed * math.sin(α)
-            self.ball.speed += 0.1
+            self.ball.speed += 0.4
 
     # ==== [ reinit: reinitialize game for another round >=====================
     def reinit(self):
-        self.state = "START"
         self.ball.reset()
-        self.left_player.paddle.rest()
-        self.right_player.paddle.rest()
+        self.left_player.reset()
+        self.right_player.reset()
         async_to_sync(self.broadcast_to_players)({
             "type": "gameplay_reinit",
             "ball": [self.ball.x, self.ball.y],
@@ -205,17 +233,41 @@ class Game:
             "paddle_x": [self.left_player.paddle.x, self.right_player.paddle.x]
         })
         # print("[SERVER: REINIT]> reinit the game")
-        return self
+
+    # ==== [stop: stop the game one second ] >=================================
+    def stop(self):
+        players = [self.left_player, self.right_player]
+        time_sleep = 1
+        for index, player in enumerate(players):
+            if player.state == "unavailable":
+                time.sleep(time_sleep)
+                player.timer -= time_sleep
+                if player.timer == 0:
+                    players[0 if index > 0 else 1].score = self.max_score
+                    self.state = "END"
+                async_to_sync(self.broadcast_to_players)({
+                    "type": "gameplay_stop",
+                    "player_id": player.id,
+                    "timer": player.timer,
+                })
+                # print(f"sleep: {player.timer}")
 
     # ==== [ end: broadcast game_end & return game results >===================
     def end(self):
+        players = [self.left_player, self.right_player]
+        winner, loser = (1, 0) if players[0].score < self.max_score else (0, 1)
         results = {
-            self.left_player.id: self.left_player.score,
-            self.right_player.id: self.right_player.score,
+            "winner_id": players[winner].id,
+            "loser_id": players[loser].id,
+            "winner_score": players[winner].score,
+            "loser_score": players[loser].score,
         }
         async_to_sync(self.broadcast_to_players)({
             "type": "gameplay_end",
-            "score": [self.left_player.score, self.right_player.score],
+            "winner_id": results['winner_id'],
+            "loser_id": results['loser_id'],
+            "winner_score": results['winner_score'],
+            "loser_score": results['loser_score'],
         })
         return results
 
