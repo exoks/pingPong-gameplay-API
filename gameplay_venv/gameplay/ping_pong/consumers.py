@@ -5,14 +5,14 @@
 #  ⢀⠔⠉⠀⠊⠿⠿⣿⠂⠠⠢⣤⠤⣤⣼⣿⣶⣶⣤⣝⣻⣷⣦⣍⡻⣿⣿⣿⣿⡀
 #  ⢾⣾⣆⣤⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠉⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇
 #  ⠀⠈⢋⢹⠋⠉⠙⢦⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇       Created: 2024/11/24 10:50:16 by oezzaou
-#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/12/07 20:21:39 by oezzaou
+#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/12/08 17:38:09 by oezzaou
 #  ⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⢀⣾⣿⣿⠿⠟⠛⠋⠛⢿⣿⣿⠻⣿⣿⣿⣿⡿⠀
 #  ⠀⠀⠀⠀⠀⠀⠀⢀⠇⠀⢠⣿⣟⣭⣤⣶⣦⣄⡀⠀⠀⠈⠻⠀⠘⣿⣿⣿⠇⠀
 #  ⠀⠀⠀⠀⠀⠱⠤⠊⠀⢀⣿⡿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠘⣿⠏⠀⠀                             𓆩♕𓆪
 #  ⠀⠀⠀⠀⠀⡄⠀⠀⠀⠘⢧⡀⠀⠀⠸⣿⣿⣿⠟⠀⠀⠀⠀⠀⠀⠐⠋⠀⠀⠀                     𓄂 oussama ezzaou𓆃
 #  ⠀⠀⠀⠀⠀⠘⠄⣀⡀⠸⠓⠀⠀⠀⠠⠟⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 
-# ==== [ Modules: >============================================================
+# ====<[ Modules: ]>===========================================================
 from channels.generic.websocket import AsyncWebsocketConsumer
 from .tasks import start_gameplay
 import json
@@ -39,7 +39,7 @@ class PlayerConsumer(AsyncWebsocketConsumer):
         await self.accept()
         print(f"[SERVER: CONNECT]: > id:{self.player_id}, room:{self.room_id}")
 
-    # ====<[ disconnect: when connection closed ]>==============================
+    # ====<[ disconnect: when connection closed ]>=============================
     async def disconnect(self, code):
         await self.channel_layer.group_discard(self.room_id, self.channel_name)
         # WARNING: cache must be deleted in case of game_end
@@ -48,7 +48,7 @@ class PlayerConsumer(AsyncWebsocketConsumer):
         self.redis_conn.close()
         print("[SERVER: DISCONNECT]: > connection closed")
 
-    # ====<[ receive: receive data from client-side ]>===========================
+    # ====<[ receive: receive data from client-side ]>=========================
     async def receive(self, text_data):
         data = json.loads(text_data)
         await self.channel_layer.group_send(self.room_id, {
@@ -70,7 +70,7 @@ class PlayerConsumer(AsyncWebsocketConsumer):
                                  self.game_cache)
             print("[SERVER: MESSAGE: > starting game")
 
-    # ====<[ gameplay_init: initiate the game for client-side ]>=================
+    # ====<[ gameplay_init: initiate the game for client-side ]>===============
     async def gameplay_init(self, game_data):
         player, opponent = (0, 1) if self.initiator is True else (1, 0)
         await self.send(json.dumps({
@@ -81,7 +81,7 @@ class PlayerConsumer(AsyncWebsocketConsumer):
             "opponent_score": game_data['score'][opponent],
         }))
 
-# ====<[ paddle_state: update paddle_state in client-side ]>=================
+# ====<[ paddle_state: update paddle_state in client-side ]>===================
     async def paddle_state(self, data):
         if self.player_id != data['player_id']:
             await self.send(json.dumps({
@@ -90,14 +90,14 @@ class PlayerConsumer(AsyncWebsocketConsumer):
             }))
         # print(f"[SERVER: EVENT] > paddle state <{data}>")
 
-    # ====<[ ball_state: update ball state in client-sdie ]>=====================
+    # ====<[ ball_state: update ball state in client-sdie ]>===================
     async def ball_state(self, ball_data):
         await self.send(json.dumps({
             "event": ball_data['type'],
             "ball": ball_data['ball'],
         }))
 
-    # ====<[ gameplay_state: update game state in client-sdie ]>=================
+    # ====<[ gameplay_state: update game state in client-sdie ]>===============
     async def gameplay_reinit(self, game_data):
         player, opponent = (0, 1) if self.initiator is True else (1, 0)
         await self.send(json.dumps({
@@ -109,7 +109,7 @@ class PlayerConsumer(AsyncWebsocketConsumer):
         }))
         # self.redis_conn.delete(self.game_cache)
 
-    # ====<[ gameplay_stop: stop the game play ]>===============================
+    # ====<[ gameplay_stop: stop the game play ]>==============================
     async def gameplay_stop(self, game_data):
         if self.player_id != game_data['player_id']:
             await self.send(json.dumps({
@@ -117,6 +117,6 @@ class PlayerConsumer(AsyncWebsocketConsumer):
                 "timer": game_data['timer']
             }))
 
-    # ====<[ gameplay_end: end game in client-side ]>============================
+    # ====<[ gameplay_end: end game in client-side ]>==========================
     async def gameplay_end(self, game_data):
         await self.send(json.dumps(game_data))
