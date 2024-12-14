@@ -1,5 +1,0 @@
-django
-channels
-channels-redis
-celery
-daphne

@@ -1,50 +1,35 @@
 #  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⣦⣴⣶⣾⣿⣶⣶⣶⣶⣦⣤⣄⠀⠀⠀⠀⠀⠀⠀                                              
-#  ⠀⠀⠀⠀⠀⠀⠀⢠⡶⠻⠛⠟⠋⠉⠀⠈⠤⠴⠶⠶⢾⣿⣿⣿⣷⣦⠄⠀⠀⠀      𓐓  docker-compose.yml 𓐔           
+#  ⠀⠀⠀⠀⠀⠀⠀⢠⡶⠻⠛⠟⠋⠉⠀⠈⠤⠴⠶⠶⢾⣿⣿⣿⣷⣦⠄⠀⠀⠀              𓐓  Dockerfile 𓐔           
 #  ⠀⠀⠀⠀⠀⢀⠔⠋⠀⠀⠤⠒⠒⢲⠀⠀⠀⢀⣠⣤⣤⣬⣽⣿⣿⣿⣷⣄⠀⠀                                              
 #  ⠀⠀⠀⣀⣎⢤⣶⣾⠅⠀⠀⢀⡤⠏⠀⠀⠀⠠⣄⣈⡙⠻⢿⣿⣿⣿⣿⣿⣦⠀   Student: oezzaou <oezzaou@student.1337.ma> 
 #  ⢀⠔⠉⠀⠊⠿⠿⣿⠂⠠⠢⣤⠤⣤⣼⣿⣶⣶⣤⣝⣻⣷⣦⣍⡻⣿⣿⣿⣿⡀                                              
 #  ⢾⣾⣆⣤⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠉⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇                                              
-#  ⠀⠈⢋⢹⠋⠉⠙⢦⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇       Created: 2024/11/24 22:27:28 by oezzaou
-#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/12/14 03:34:50 by oezzaou
+#  ⠀⠈⢋⢹⠋⠉⠙⢦⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇       Created: 2024/11/24 22:15:05 by oezzaou
+#  ⠀⠀⠀⠑⠀⠀⠀⠈⡇⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇       Updated: 2024/12/14 03:13:24 by oezzaou
 #  ⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⢀⣾⣿⣿⠿⠟⠛⠋⠛⢿⣿⣿⠻⣿⣿⣿⣿⡿⠀                                              
 #  ⠀⠀⠀⠀⠀⠀⠀⢀⠇⠀⢠⣿⣟⣭⣤⣶⣦⣄⡀⠀⠀⠈⠻⠀⠘⣿⣿⣿⠇⠀                                              
 #  ⠀⠀⠀⠀⠀⠱⠤⠊⠀⢀⣿⡿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠘⣿⠏⠀⠀                             𓆩♕𓆪      
 #  ⠀⠀⠀⠀⠀⡄⠀⠀⠀⠘⢧⡀⠀⠀⠸⣿⣿⣿⠟⠀⠀⠀⠀⠀⠀⠐⠋⠀⠀⠀                     𓄂 oussama ezzaou𓆃  
 #  ⠀⠀⠀⠀⠀⠘⠄⣀⡀⠸⠓⠀⠀⠀⠠⠟⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀                                              
 
-services:
-  matchmaking_venv:
-    container_name: matchmaker
-    build: ./matchmaking
-    image: matchmaker:image
-    ports:
-      - "8000:8000"
+FROM python:3.12.2-slim-bullseye
 
-  gameplay_service:
-    container_name: gameplay
-    build: ./gameplay
-    image: gameplay:image
-    ports:
-      - "8001:8001"
+RUN     apt-get update && apt-get -y install gcc libpq-dev libffi-dev
 
-  redis:
-    container_name: redis
-    image: redis:latest
-    ports:
-      - "6379:6379"
+COPY  ./tools/ tools/
 
-  celery_matchmaking:
-    container_name: celery_matchmaking
-    build: ./matchmaking
-    restart: always
-    command: celery -A matchmaking_service worker -l info -Q matchmaking_queue
-    depends_on:
-      - redis
+RUN   python -m venv venv \
+        && . /venv/bin/activate \
+        && pip install --no-cache-dir --upgrade pip \
+        && pip install --no-cache-dir -r /tools/requirements.txt 
 
-  celery_gameplay:
-    container_name: celery_gameplay
-    build: ./gameplay
-    restart: always
-    command: celery -A gameplay worker -l info -Q gameplay_queue 
-    depends_on:
-      - redis
+ENV     PATH="/venv/bin:$PATH"
+ENV     PYTHONUNBUFFERED=1
+
+COPY  . /app/.
+WORKDIR /app
+
+EXPOSE 8000
+
+CMD [ "daphne", "-b", "0.0.0.0", "-p", "8000", "matchmaking_service.asgi:application"]
+# CMD ["daphne", "matchmaking_service.asgi:application", "-c" , "daphne_config.py"]
