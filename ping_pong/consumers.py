@@ -1,5 +1,5 @@
 #  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⣦⣴⣶⣾⣿⣶⣶⣶⣶⣦⣤⣄⠀⠀⠀⠀⠀⠀⠀
-#  ⠀⠀⠀⠀⠀⠀⠀⢠⡶⠻⠛⠟⠋⠉⠀⠈⠤⠴⠶⠶⢾⣿⣿⣿⣷⣦⠄⠀⠀⠀            𓐓  consumers.py 𓐔           
+#  ⠀⠀⠀⠀⠀⠀⠀⢠⡶⠻⠛⠟⠋⠉⠀⠈⠤⠴⠶⠶⢾⣿⣿⣿⣷⣦⠄⠀⠀⠀            𓐓  consumers.py 𓐔
 #  ⠀⠀⠀⠀⠀⢀⠔⠋⠀⠀⠤⠒⠒⢲⠀⠀⠀⢀⣠⣤⣤⣬⣽⣿⣿⣿⣷⣄⠀⠀
 #  ⠀⠀⠀⣀⣎⢤⣶⣾⠅⠀⠀⢀⡤⠏⠀⠀⠀⠠⣄⣈⡙⠻⢿⣿⣿⣿⣿⣿⣦⠀   Student: oezzaou <oezzaou@student.1337.ma>
 #  ⢀⠔⠉⠀⠊⠿⠿⣿⠂⠠⠢⣤⠤⣤⣼⣿⣶⣶⣤⣝⣻⣷⣦⣍⡻⣿⣿⣿⣿⡀
@@ -24,7 +24,11 @@ class PlayerConsumer(AsyncWebsocketConsumer):
 
     # =====<[ connect: establish websocket connection: ]>======================
     async def connect(self):
-        self.player_id = ''.join(random.choices("abcdefghijklmnopqrs", k=10))
+        headers = dict(self.scope['headers'])
+        x_user_id = headers.get(b'x-user-id', None)
+        if x_user_id is None:
+            await self.close()
+        self.player_id = x_user_id.decode('utf-8')
         self.room_id = self.scope['url_route']['kwargs']['room_id']
         self.redis_conn = redis.StrictRedis(host="redis", port=6379)
         self.game_cache = f"{self.room_id}_cache"
@@ -42,7 +46,6 @@ class PlayerConsumer(AsyncWebsocketConsumer):
     # ====<[ disconnect: when connection closed ]>=============================
     async def disconnect(self, code):
         await self.channel_layer.group_discard(self.room_id, self.channel_name)
-        # WARNING: cache must be deleted in case of game_end
         # self.redis_conn.delete(self.game_cache)
         self.redis_conn.hset(self.game_cache, self.player_state, "unavailable")
         self.redis_conn.close()
